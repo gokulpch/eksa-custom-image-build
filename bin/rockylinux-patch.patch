@@ -1,0 +1,228 @@
+diff --git a/images/capi/Makefile b/images/capi/Makefile
+index 1be0e3ded..75a1253e7 100644
+--- a/images/capi/Makefile
++++ b/images/capi/Makefile
+@@ -331,7 +331,7 @@ OSC_BUILD_NAMES 			?=	osc-ubuntu-2004
+ QEMU_BUILD_NAMES			?=	qemu-ubuntu-1804 qemu-ubuntu-2004 qemu-centos-7 qemu-ubuntu-2004-efi qemu-rhel-8 qemu-rockylinux-8 qemu-flatcar
+ QEMU_KUBEVIRT_BUILD_NAMES	:= $(addprefix kubevirt-,$(QEMU_BUILD_NAMES))
+
+-RAW_BUILD_NAMES                        ?=      raw-ubuntu-1804 raw-ubuntu-2004 raw-ubuntu-2004-efi raw-flatcar
++RAW_BUILD_NAMES                        ?=      raw-ubuntu-1804 raw-ubuntu-2004 raw-ubuntu-2004-efi raw-flatcar raw-rockylinux-8
+ VBOX_BUILD_NAMES			?=      vbox-windows-2019
+
+ POWERVS_BUILD_NAMES         ?= powervs-centos-8
+@@ -671,6 +671,7 @@ build-raw-flatcar: ## Builds Flatcar RAW image
+ build-raw-ubuntu-1804: ## Builds Ubuntu 18.04 RAW image
+ build-raw-ubuntu-2004: ## Builds Ubuntu 20.04 RAW image
+ build-raw-ubuntu-2004-efi: ## Builds Ubuntu 20.04 RAW image that EFI boots
++build-raw-rockylinux-8: ## Builds Rocky 8 RAW image
+ build-raw-all: $(RAW_BUILD_TARGETS) ## Builds all RAW images
+
+ build-oci-ubuntu-1804: ## Builds the OCI ubuntu-1804 image
+diff --git a/images/capi/ansible/roles/sysprep/tasks/main.yml b/images/capi/ansible/roles/sysprep/tasks/main.yml
+index 5d46a657f..6295457db 100644
+--- a/images/capi/ansible/roles/sysprep/tasks/main.yml
++++ b/images/capi/ansible/roles/sysprep/tasks/main.yml
+@@ -24,6 +24,15 @@
+ - import_tasks: photon.yml
+   when: ansible_os_family == "VMware Photon OS"
+
++- name: Get stats of the /etc/pki folder
++  ansible.builtin.stat:
++    path: /etc/pki
++  register: pki
++
++- name: Ensures /etc/pki/tls/certs dir exists
++  file: path=/etc/pki/tls/certs state=directory
++  when: pki.stat.isdir is defined and pki.stat.isdir
++
+ - name: Remove containerd http proxy conf file if needed
+   file:
+     path: /etc/systemd/system/containerd.service.d/http-proxy.conf
+@@ -44,8 +53,8 @@
+     group: root
+     mode: "{{ item.mode }}"
+   loop:
+-  - { path: /etc/machine-id, state: absent, mode: "{{ machine_id_mode }}" }
+-  - { path: /etc/machine-id, state: touch,  mode: "{{ machine_id_mode }}" }
++  - { path: /etc/machine-id, state: absent, mode: "0444" }
++  - { path: /etc/machine-id, state: touch,  mode: "0444" }
+   when: ansible_os_family != "Flatcar"
+
+ - name: Truncate hostname file
+@@ -60,8 +69,9 @@
+   - { path: /etc/hostname, state: touch,  mode: "0644" }
+
+ - name: Set hostname
+-  hostname:
+-    name: localhost.local
++  shell:
++    cmd: |
++      hostnamectl set-hostname localhost.local
+   when: ansible_os_family != "VMware Photon OS" and ansible_os_family != "Flatcar"
+
+ - name: Reset hosts file
+@@ -81,9 +91,9 @@
+     mode: "{{ item.mode }}"
+   loop:
+   - { path: /var/log/wtmp,    state: absent, mode: "0664" }
+-  - { path: /var/log/lastlog, state: absent, mode: "{{ last_log_mode }}" }
++  - { path: /var/log/lastlog, state: absent, mode: "0644" }
+   - { path: /var/log/wtmp,    state: touch,  mode: "0664" }
+-  - { path: /var/log/lastlog, state: touch,  mode: "{{ last_log_mode }}" }
++  - { path: /var/log/lastlog, state: touch,  mode: "0644" }
+
+ - name: Remove cloud-init lib dir and logs
+   file:
+@@ -134,15 +144,6 @@
+   loop: "{{ netplan_files.files }}"
+   when: netplan_files.files is defined and (netplan_files.files|length>0)
+
+-- name: Create netplan for KubeVirt
+-  vars:
+-    kubevirt: "{{ lookup('env', 'KUBEVIRT') }}"
+-  copy:
+-    src: files/etc/netplan/51-kubevirt-netplan.yaml
+-    dest: /etc/netplan/51-kubevirt-netplan.yaml
+-    mode: "0644"
+-  when: ansible_os_family == "Debian" and kubevirt == "true"
+-
+ - name: Find SSH host keys
+   find:
+     path: /etc/ssh
+@@ -226,9 +227,3 @@
+     state: absent
+     path: /usr/share/oem/config.ign
+   when: ansible_os_family == "Flatcar"
+-
+-- name: start ssh
+-  systemd:
+-    name: ssh
+-    enabled: yes
+-  when: ansible_os_family == "Debian"
+diff --git a/images/capi/packer/raw/linux/rockylinux/http/8.7/ks.cfg b/images/capi/packer/raw/linux/rockylinux/http/8.7/ks.cfg
+new file mode 100644
+index 000000000..941a9ef8c
+--- /dev/null
++++ b/images/capi/packer/raw/linux/rockylinux/http/8.7/ks.cfg
+@@ -0,0 +1,98 @@
++# Use CDROM installation media
++repo --name="AppStream" --baseurl="http://download.rockylinux.org/pub/rocky/8/AppStream/x86_64/os/"
++cdrom
++
++# Use text install
++text
++
++# Don't run the Setup Agent on first boot
++firstboot --disabled
++eula --agreed
++
++# Keyboard layouts
++keyboard --vckeymap=us --xlayouts='us'
++
++# System language
++lang en_US.UTF-8
++
++# Network information
++network --bootproto=dhcp --onboot=on --ipv6=auto --activate --hostname=capv.vm
++
++# Lock Root account
++rootpw --lock
++
++# Create builder user
++user --name=builder --groups=wheel --password=builder --plaintext --shell=/bin/bash
++
++# System services
++selinux --permissive
++firewall --disabled
++services --enabled="NetworkManager,sshd,chronyd"
++
++# System timezone
++timezone UTC
++
++# System booloader configuration
++bootloader --location=mbr --boot-drive=sda
++zerombr
++clearpart --all --initlabel --drives=sda
++part / --fstype="ext4" --grow --asprimary --label=slash --ondisk=sda
++
++skipx
++
++%packages --ignoremissing --excludedocs
++openssh-server
++open-vm-tools
++sudo
++sed
++python3
++conntrack-tools
++cloud-init
++
++# unnecessary firmware
++-aic94xx-firmware
++-atmel-firmware
++-b43-openfwwf
++-bfa-firmware
++-ipw2100-firmware
++-ipw2200-firmware
++-ivtv-firmware
++-iwl*-firmware
++-libertas-usb8388-firmware
++-ql*-firmware
++-rt61pci-firmware
++-rt73usb-firmware
++-xorg-x11-drv-ati-firmware
++-zd1211-firmware
++-cockpit
++-quota
++-alsa-*
++-fprintd-pam
++-intltool
++-microcode_ctl
++%end
++
++%addon com_redhat_kdump --disable
++%end
++
++reboot
++
++%post
++
++echo 'builder ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/builder
++chmod 440 /etc/sudoers.d/builder
++
++# Remove the package cache
++yum -y clean all
++
++swapoff -a
++rm -f /swapfile
++sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
++
++systemctl enable vmtoolsd
++systemctl start vmtoolsd
++
++# Ensure on next boot that network devices get assigned unique IDs.
++sed -i '/^\(HWADDR\|UUID\)=/d' /etc/sysconfig/network-scripts/ifcfg-*
++
++%end
+diff --git a/images/capi/packer/raw/raw-rockylinux-8.json b/images/capi/packer/raw/raw-rockylinux-8.json
+new file mode 100644
+index 000000000..ed384904d
+--- /dev/null
++++ b/images/capi/packer/raw/raw-rockylinux-8.json
+@@ -0,0 +1,16 @@
++{
++  "boot_command_prefix": "<up><tab> text inst.ks=",
++  "boot_command_suffix": "/8.7/ks.cfg<enter><wait><enter>",
++  "build_name": "rockylinux-8",
++  "distro_arch": "amd64",
++  "distro_name": "rockylinux",
++  "distro_version": "8",
++  "epel_rpm_gpg_key": "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-8",
++  "guest_os_type": "centos8-64",
++  "iso_checksum": "13c3e7fca1fd32df61695584baafc14fa28d62816d0813116d23744f5394624b",
++  "iso_checksum_type": "sha256",
++  "iso_url": "https://download.rockylinux.org/pub/rocky/8/isos/x86_64/Rocky-8.7-x86_64-minimal.iso",
++  "os_display_name": "RockyLinux 8",
++  "redhat_epel_rpm": "https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm",
++  "shutdown_command": "/sbin/halt -h -p"
++}
