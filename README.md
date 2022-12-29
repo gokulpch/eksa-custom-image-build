@@ -31,6 +31,9 @@ sudo PACKER_FLAGS="-force" PACKER_LOG=1 PACKER_LOG_PATH=/home/image-builder/jma-
 
 3. The final image is created and placed in ```<home_path>/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/image-builder/images/capi/output```. The image is compressed and gzipped - for example: rockylinux-8-kube-v1.24.8.gz
 
+4. The above image (rockylinux-8-kube-v1.24.8.gz) can be hosted in a simple webserver hosted on the admin machine (python3 -m http.server
+) and can be used in the cluster configuration file (sample in the repository).
+
 
 
 
