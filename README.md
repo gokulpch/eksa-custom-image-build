@@ -12,7 +12,7 @@ The screen-capture below walks through the image-build process. There are four f
 ### Build Steps
 
 
-1. The First section of video shows running a command "sudo image-builder build --os ubuntu --hypervisor baremetal --release-channel 1-24", this command clones all the necessary repositories and set the build environment, by default once it is set it initiates the build of Ubuntu based image which is not needed in this case. Users can just bail out (CTRL+C) from the process as shown in the video which will provide all the necessary repositories in-place.
+1. The First section of video shows running a command ```sudo image-builder build --os ubuntu --hypervisor baremetal --release-channel 1-24```, this command clones all the necessary repositories and set the build environment, by default once it is set it initiates the build of Ubuntu based image which is not needed in this case. Users can just bail out (CTRL+C) from the process as shown in the video which will provide all the necessary repositories in-place.
 
 
 2. Below are the two packer utility commands that are used for building the images. These are the same scripts that are used in the sceree-capture above.
