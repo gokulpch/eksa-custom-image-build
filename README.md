@@ -5,6 +5,8 @@
 
 The screen-capture below walks through the image-build process. There are four files which are edited/added in the walkthrough below and the same can be found in the rockylinux-8.7 directory of this repository, just swap the original files with the files in this repository rather editing each line as shown in the video.
 
+**The Video URL redirects to a video hosting site (Vimeo)
+
 [![IMAGE ALT TEXT HERE](bin/img1.png)](https://vimeo.com/784925919)
 
 ### Build Steps
