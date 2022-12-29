@@ -29,7 +29,7 @@ sudo build/setup_packer_configs.sh 1-24 raw rockylinux s3://projectbuildpipeline
 sudo PACKER_FLAGS="-force" PACKER_LOG=1 PACKER_LOG_PATH=/home/image-builder/jma-image-build/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/_output/tar/1-24/raw/rockylinux/packer.log PACKER_VAR_FILES="/home/image-builder/jma-image-build/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/_output/1-24/raw/rockylinux/config/kubernetes.json /home/image-builder/jma-image-build/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/_output/1-24/raw/rockylinux/config/common.json /home/image-builder/jma-image-build/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/_output/1-24/raw/rockylinux/config/cni.json /home/image-builder/jma-image-build/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/_output/1-24/raw/rockylinux/config/additional_components.json " make -C image-builder/images/capi build-raw-rockylinux-8
 ```
 
-
+3. The final image is created and placed in ```<home_path>/eks-anywhere-build-tooling/projects/kubernetes-sigs/image-builder/image-builder/images/capi/output```. The image is compressed and gzipped - for example: rockylinux-8-kube-v1.24.8.gz
 
 
 
